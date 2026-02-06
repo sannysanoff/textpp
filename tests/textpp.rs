@@ -103,6 +103,21 @@ fn ifdef_fails_when_defined_as_empty() {
 }
 
 #[test]
+fn ifndef_is_inverse_of_ifdef() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(&input, "#ifndef KEY\nyes\n#else\nno\n#endif\n");
+
+    let out_undefined = run_textpp(&[input.to_str().unwrap()]);
+    assert!(out_undefined.status.success());
+    assert_eq!(String::from_utf8_lossy(&out_undefined.stdout), "yes\n");
+
+    let out_defined = run_textpp(&["-DKEY=1", input.to_str().unwrap()]);
+    assert!(out_defined.status.success());
+    assert_eq!(String::from_utf8_lossy(&out_defined.stdout), "no\n");
+}
+
+#[test]
 fn if_expression_truthiness_and_comparisons() {
     let dir = temp_dir();
     let input = dir.join("input.md");
@@ -213,6 +228,20 @@ fn nested_conditions() {
 
     let out = run_textpp(&["-DOUTER=1", "-DINNER=yes", input.to_str().unwrap()]);
 
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "OK\n");
+}
+
+#[test]
+fn nested_ifndef_conditions() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(
+        &input,
+        "#ifndef OUTER\n#ifndef INNER\nOK\n#else\nNO\n#endif\n#endif\n",
+    );
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
     assert!(out.status.success());
     assert_eq!(String::from_utf8_lossy(&out.stdout), "OK\n");
 }

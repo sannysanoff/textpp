@@ -19,6 +19,8 @@ Directives are recognized only when `#` is the first character on the line. All 
 - `#ifdef VAR`
   - True when `VAR` is defined and not empty (`-DVAR=VALUE` or `-DVAR`).
   - `-DVAR=` or `-DVAR=""` makes `VAR` undefined.
+- `#ifndef VAR`
+  - True when `VAR` is undefined or empty.
 - `#if (EXPR)`
   - Operators: `||`, `&&`, `!`, `==`, `!=`, parentheses.
   - Identifiers resolve to their defined value (or empty if undefined).
@@ -26,7 +28,7 @@ Directives are recognized only when `#` is the first character on the line. All 
 - `#else`
 - `#endif`
 
-Any mismatched `#if` / `#ifdef` / `#else` / `#endif` is a hard error. Invalid logical expressions are a hard error.
+Any mismatched `#if` / `#ifdef` / `#ifndef` / `#else` / `#endif` is a hard error. Invalid logical expressions are a hard error.
 
 ### Variable substitution
 

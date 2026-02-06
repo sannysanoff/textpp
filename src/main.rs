@@ -127,6 +127,18 @@ fn process_file(path: &Path, defs: &Defs, out: &mut String) -> Result<(), String
                 current_active = new_active;
                 continue;
             }
+            if trimmed.starts_with("ifndef") {
+                let name = trimmed["ifndef".len()..].trim();
+                let cond = !defs.is_defined(name);
+                let new_active = current_active && cond;
+                stack.push(CondFrame {
+                    parent_active: current_active,
+                    active: cond,
+                    else_seen: false,
+                });
+                current_active = new_active;
+                continue;
+            }
             if trimmed.starts_with("if") {
                 let expr = trimmed["if".len()..].trim();
                 let cond = eval_expr(expr, defs)?;
@@ -141,7 +153,8 @@ fn process_file(path: &Path, defs: &Defs, out: &mut String) -> Result<(), String
             }
             if trimmed.starts_with("else") {
                 let top = stack.last_mut().ok_or_else(|| {
-                    "invalid directive structure: #else without matching #if/#ifdef".to_string()
+                    "invalid directive structure: #else without matching #if/#ifdef/#ifndef"
+                        .to_string()
                 })?;
                 if !top.else_seen {
                     top.else_seen = true;
@@ -152,7 +165,8 @@ fn process_file(path: &Path, defs: &Defs, out: &mut String) -> Result<(), String
             }
             if trimmed.starts_with("endif") {
                 let top = stack.pop().ok_or_else(|| {
-                    "invalid directive structure: #endif without matching #if/#ifdef".to_string()
+                    "invalid directive structure: #endif without matching #if/#ifdef/#ifndef"
+                        .to_string()
                 })?;
                 current_active = top.parent_active;
                 continue;
