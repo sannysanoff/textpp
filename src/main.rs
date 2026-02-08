@@ -83,7 +83,7 @@ fn main() {
 
     let input_path = PathBuf::from(&input);
     let mut out = String::new();
-    match process_file(&input_path, &defs, &mut out) {
+    match process_file(&input_path, &mut defs, &mut out) {
         Ok(()) => {
             print!("{out}");
         }
@@ -94,7 +94,7 @@ fn main() {
     }
 }
 
-fn process_file(path: &Path, defs: &Defs, out: &mut String) -> Result<(), String> {
+fn process_file(path: &Path, defs: &mut Defs, out: &mut String) -> Result<(), String> {
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(_) => return Ok(()),
@@ -151,6 +151,22 @@ fn process_file(path: &Path, defs: &Defs, out: &mut String) -> Result<(), String
                 current_active = new_active;
                 continue;
             }
+            if let Some(args) = directive_args(trimmed, "define") {
+                if current_active {
+                    if let Some((name, value)) = parse_define_args(args) {
+                        defs.set_defined(&name, Some(value));
+                        continue;
+                    }
+                }
+            }
+            if let Some(args) = directive_args(trimmed, "undef") {
+                if current_active {
+                    if let Some(name) = parse_single_ident(args) {
+                        defs.set_defined(&name, None);
+                        continue;
+                    }
+                }
+            }
             if trimmed.starts_with("else") {
                 let top = stack.last_mut().ok_or_else(|| {
                     "invalid directive structure: #else without matching #if/#ifdef/#ifndef"
@@ -185,6 +201,48 @@ fn process_file(path: &Path, defs: &Defs, out: &mut String) -> Result<(), String
     }
 
     Ok(())
+}
+
+fn directive_args<'a>(line: &'a str, kw: &str) -> Option<&'a str> {
+    let rest = line.strip_prefix(kw)?;
+    if rest.is_empty() || rest.chars().next().is_some_and(|c| c.is_whitespace()) {
+        Some(rest.trim_start())
+    } else {
+        None
+    }
+}
+
+fn parse_single_ident(args: &str) -> Option<String> {
+    let name = args.trim();
+    if is_ident(name) {
+        Some(name.to_string())
+    } else {
+        None
+    }
+}
+
+fn parse_define_args(args: &str) -> Option<(String, String)> {
+    let trimmed = args.trim_start();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some(idx) = trimmed.find(char::is_whitespace) {
+        let (name, value) = trimmed.split_at(idx);
+        if !is_ident(name) {
+            return None;
+        }
+        let value = value.trim_start();
+        if value.is_empty() {
+            Some((name.to_string(), "TRUE".to_string()))
+        } else {
+            Some((name.to_string(), value.to_string()))
+        }
+    } else if is_ident(trimmed) {
+        Some((trimmed.to_string(), "TRUE".to_string()))
+    } else {
+        None
+    }
 }
 
 fn parse_include_path(rest: &str, defs: &Defs) -> Option<PathBuf> {

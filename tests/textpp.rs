@@ -218,6 +218,77 @@ fn unknown_directives_are_ignored_and_preserved() {
 }
 
 #[test]
+fn define_sets_value_for_later_substitution() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(&input, "#define ZZZZ some text here\nvalue: $$ZZZZ$$\n");
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "value: some text here\n");
+}
+
+#[test]
+fn undef_clears_existing_value() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(
+        &input,
+        "before: $$ZZZZ$$\n#undef ZZZZ\nafter: $$ZZZZ$$\n#ifdef ZZZZ\nbad\n#endif\n",
+    );
+
+    let out = run_textpp(&["-DZZZZ=from_cli", input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "before: from_cli\nafter: \n");
+}
+
+#[test]
+fn undef_non_existing_value_is_noop() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(&input, "#undef ZZZZ\nvalue: $$ZZZZ$$\n");
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "value: \n");
+}
+
+#[test]
+fn define_redefines_existing_value() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(
+        &input,
+        "before: $$ZZZZ$$\n#define ZZZZ second\nafter: $$ZZZZ$$\n",
+    );
+
+    let out = run_textpp(&["-DZZZZ=first", input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "before: first\nafter: second\n");
+}
+
+#[test]
+fn define_value_is_visible_in_included_file() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    let include = dir.join("inc/part.txt");
+    write_file(&include, "included: $$ZZZZ$$\n");
+    write_file(
+        &input,
+        "#define ZZZZ some text here\n#include \"inc/part.txt\"\n",
+    );
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "included: some text here\n");
+}
+
+#[test]
 fn nested_conditions() {
     let dir = temp_dir();
     let input = dir.join("input.md");

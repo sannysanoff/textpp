@@ -25,6 +25,11 @@ Directives are recognized only when `#` is the first character on the line. All 
   - Operators: `||`, `&&`, `!`, `==`, `!=`, parentheses.
   - Identifiers resolve to their defined value (or empty if undefined).
   - Truthiness: false when empty, `0`, `F`, `False`, or `NO` (case-insensitive). Otherwise true.
+- `#define KEY [VALUE]`
+  - Defines `KEY` for subsequent lines.
+  - With no `VALUE`, `KEY` is set to `TRUE`.
+- `#undef KEY`
+  - Makes `KEY` undefined for subsequent lines.
 - `#else`
 - `#endif`
 
