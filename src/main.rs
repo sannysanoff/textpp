@@ -46,7 +46,8 @@ impl Defs {
 #[derive(Debug)]
 struct CondFrame {
     parent_active: bool,
-    active: bool,
+    branch_active: bool,
+    any_taken: bool,
     else_seen: bool,
 }
 
@@ -121,7 +122,8 @@ fn process_file(path: &Path, defs: &mut Defs, out: &mut String) -> Result<(), St
                 let new_active = current_active && cond;
                 stack.push(CondFrame {
                     parent_active: current_active,
-                    active: cond,
+                    branch_active: cond,
+                    any_taken: cond,
                     else_seen: false,
                 });
                 current_active = new_active;
@@ -133,7 +135,8 @@ fn process_file(path: &Path, defs: &mut Defs, out: &mut String) -> Result<(), St
                 let new_active = current_active && cond;
                 stack.push(CondFrame {
                     parent_active: current_active,
-                    active: cond,
+                    branch_active: cond,
+                    any_taken: cond,
                     else_seen: false,
                 });
                 current_active = new_active;
@@ -145,7 +148,8 @@ fn process_file(path: &Path, defs: &mut Defs, out: &mut String) -> Result<(), St
                 let new_active = current_active && cond;
                 stack.push(CondFrame {
                     parent_active: current_active,
-                    active: cond,
+                    branch_active: cond,
+                    any_taken: cond,
                     else_seen: false,
                 });
                 current_active = new_active;
@@ -167,16 +171,35 @@ fn process_file(path: &Path, defs: &mut Defs, out: &mut String) -> Result<(), St
                     }
                 }
             }
+            if let Some(args) = directive_args(trimmed, "elif") {
+                let top = stack.last_mut().ok_or_else(|| {
+                    "invalid directive structure: #elif without matching #if/#ifdef/#ifndef"
+                        .to_string()
+                })?;
+                if top.else_seen {
+                    return Err(
+                        "invalid directive structure: #elif after #else".to_string()
+                    );
+                }
+                let cond = eval_expr(args, defs)?;
+                let branch_active = !top.any_taken && cond;
+                top.branch_active = branch_active;
+                top.any_taken = top.any_taken || cond;
+                current_active = top.parent_active && branch_active;
+                continue;
+            }
             if trimmed.starts_with("else") {
                 let top = stack.last_mut().ok_or_else(|| {
                     "invalid directive structure: #else without matching #if/#ifdef/#ifndef"
                         .to_string()
                 })?;
-                if !top.else_seen {
-                    top.else_seen = true;
-                    top.active = !top.active;
-                    current_active = top.parent_active && top.active;
+                if top.else_seen {
+                    return Err("invalid directive structure: multiple #else branches".to_string());
                 }
+                top.else_seen = true;
+                top.branch_active = !top.any_taken;
+                top.any_taken = true;
+                current_active = top.parent_active && top.branch_active;
                 continue;
             }
             if trimmed.starts_with("endif") {

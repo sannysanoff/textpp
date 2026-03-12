@@ -152,10 +152,76 @@ fn invalid_expression_fails() {
 }
 
 #[test]
+fn elif_chain_selects_first_matching_branch() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(
+        &input,
+        "#if (A == 1)\none\n#elif (B == 2)\ntwo\n#elif (C)\nthree\n#else\nfallback\n#endif\n",
+    );
+
+    let out = run_textpp(&["-DB=2", "-DC=1", input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "two\n");
+}
+
+#[test]
+fn elif_without_match_uses_else() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(
+        &input,
+        "#if (A)\none\n#elif (B == 2)\ntwo\n#else\nfallback\n#endif\n",
+    );
+
+    let out = run_textpp(&["-DB=0", input.to_str().unwrap()]);
+
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "fallback\n");
+}
+
+#[test]
+fn unmatched_elif_fails() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(&input, "#elif (A)\nX\n");
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
+
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("invalid directive structure"));
+}
+
+#[test]
 fn unmatched_else_fails() {
     let dir = temp_dir();
     let input = dir.join("input.md");
     write_file(&input, "#else\nX\n");
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
+
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("invalid directive structure"));
+}
+
+#[test]
+fn elif_after_else_fails() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(&input, "#if (A)\nX\n#else\nY\n#elif (B)\nZ\n#endif\n");
+
+    let out = run_textpp(&[input.to_str().unwrap()]);
+
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("invalid directive structure"));
+}
+
+#[test]
+fn repeated_else_fails() {
+    let dir = temp_dir();
+    let input = dir.join("input.md");
+    write_file(&input, "#if (A)\nX\n#else\nY\n#else\nZ\n#endif\n");
 
     let out = run_textpp(&[input.to_str().unwrap()]);
 

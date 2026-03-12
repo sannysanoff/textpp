@@ -30,10 +30,12 @@ Directives are recognized only when `#` is the first character on the line. All 
   - With no `VALUE`, `KEY` is set to `TRUE`.
 - `#undef KEY`
   - Makes `KEY` undefined for subsequent lines.
+- `#elif (EXPR)`
+  - Evaluated only if no earlier branch in the same `#if` block matched.
 - `#else`
 - `#endif`
 
-Any mismatched `#if` / `#ifdef` / `#ifndef` / `#else` / `#endif` is a hard error. Invalid logical expressions are a hard error.
+Any mismatched `#if` / `#ifdef` / `#ifndef` / `#elif` / `#else` / `#endif` is a hard error. Invalid logical expressions are a hard error.
 
 ### Variable substitution
 
